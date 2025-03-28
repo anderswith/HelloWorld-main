@@ -1,12 +1,22 @@
 using API.Services;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Resources;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .WriteTo.Console()
+    .WriteTo.Seq("http://seq:5341")
+);
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("MyAPI"))
+        .AddAspNetCoreInstrumentation()  
+        .AddHttpClientInstrumentation() 
+        .AddZipkinExporter(opt => opt.Endpoint = new Uri("http://zipkin:9411/api/v2/spans"))
+    );
 // Add services to the container.
 builder.Services.AddScoped<GreetingService>();
 builder.Services.AddScoped<PlanetService>();
@@ -18,6 +28,8 @@ builder.Services.AddCors();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+
 
 var app = builder.Build();
 
